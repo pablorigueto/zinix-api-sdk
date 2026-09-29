@@ -1,0 +1,24 @@
+{
+  "name": "@zinix/sdk",
+  "version": "0.1.0",
+  "description": "SDK TypeScript server-side para a API de simulações da Zinix",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/pablorigueto/zinix-api-sdk.git" },
+  "homepage": "https://github.com/pablorigueto/zinix-api-sdk#readme",
+  "bugs": { "url": "https://github.com/pablorigueto/zinix-api-sdk/issues" },
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "src", "README.md", "LICENSE"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && tsc -p tsconfig.examples.json && node --test test/*.test.mjs",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run build"
+  },
+  "devDependencies": { "typescript": "~5.9.3" },
+  "keywords": ["zinix", "sdk", "api", "financiamento", "typescript", "nextjs"],
+  "publishConfig": { "access": "public" }
+}
