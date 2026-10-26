@@ -63,6 +63,26 @@ Cada método retorna `{ data, meta }`. Listas e consultas que a API envolve em
 centavos inteiros. Use códigos e nomes retornados pelo catálogo, não invente IDs.
 Todos os métodos HTTP aceitam `{ signal, timeoutMs }` como último argumento.
 
+### Onde obter `vehicle.version_code`
+
+Use `vehicles.versions({ legal_entity_id, type, brand_code, model_code,
+manufacture_year, model_year })`, correspondente a `GET /v1/vehicles/versions`.
+Cada item retornado contém **`code` e `name`**, não `version_code`:
+
+```ts
+const { data: versoes } = await zinix.vehicles.versions(filtros);
+// Apresente as opções e aguarde a escolha explícita do usuário.
+const escolhida = versoes.find(v => v.code === codigoEscolhidoPeloUsuario);
+if (!escolhida) throw new Error('Escolha uma versão do catálogo consultado.');
+const camposDaVersao = {
+  version_code: escolhida.code,
+  version_name: escolhida.name,
+}; // Inclua estes campos em payload.vehicle, junto aos demais obrigatórios.
+```
+
+Preserve o `code` sem conversão. Não substitua pelo código do modelo, ID do
+estoque ou código FIPE/Molicar obtido fora do catálogo da operação.
+
 ## Criar, persistir o UUID e acompanhar
 
 ```ts
@@ -127,6 +147,10 @@ e `error`. Bancos podem ter ofertas para alguns prazos e falhas para outros.
 - Preserve `condition_id` e `down_payment_cents` de cada oferta.
 - Nunca agrupe apenas por número de parcelas: uma oferta pode exigir outra entrada.
 - `monthly_rate_estimated` indica taxa calculada, não informada pelo banco.
+- `monthly_rate` é **percentual ao mês (% a.m.)**: `1.79` significa **1,79% a.m.**,
+  não uma fração decimal. Para cálculos no formato decimal, use
+  `condition.monthly_rate / 100` (`0.0179`). Não é taxa anual nem CET; a unidade
+  permanece a mesma quando `monthly_rate_estimated` é `true`.
 - Não invente parcelas nem anuncie aprovação quando `conditions` estiver vazio.
 - `partial` pode conter ofertas válidas; mostre também as pendências/falhas.
 

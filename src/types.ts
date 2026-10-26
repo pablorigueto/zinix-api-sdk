@@ -17,7 +17,11 @@ export interface Applicant {
 }
 export interface Vehicle {
   type: VehicleType; brand_code: string; brand_name: string; model_code: string; model_name: string;
-  version_code: string; version_name: string; manufacture_year: number; model_year: number; zero_km: boolean;
+  /** Exact code selected from vehicles.versions() / GET /v1/vehicles/versions; not model_code or stock ID. */
+  version_code: string;
+  /** name from the same selected catalog item as version_code. */
+  version_name: string;
+  manufacture_year: number; model_year: number; zero_km: boolean;
 }
 export interface Terms { asset_value_cents: number; down_payment_cents: number; installments: number[] }
 export interface SimulationRequest { legal_entity_id: string; applicant: Applicant; vehicle: Vehicle; terms: Terms }
@@ -40,7 +44,9 @@ export interface SimulationAccepted {
   billing: Billing; billing_charge: BillingCharge;
 }
 export interface Condition {
-  installments: number; installment_value_cents: number; monthly_rate: number;
+  installments: number; installment_value_cents: number;
+  /** Monthly interest in percent (% per month): 1.79 = 1.79% p.m.; divide by 100 for decimal calculations (0.0179). Not annual interest or CET. */
+  monthly_rate: number;
   monthly_rate_estimated?: boolean; down_payment_cents?: number | null;
   financed_amount_cents?: number | null; condition_id?: string;
 }
