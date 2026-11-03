@@ -2,7 +2,14 @@ import { Zinix, ZinixApiError, ZinixValidationError, type SimulationRequest } fr
 
 /** Application-owned policies are REQUIRED, not permissive stubs. */
 export interface Policies {
-  authorize(request: Request): Promise<{ subject: string; legalEntityId: string; idempotencyScope: string } | null>;
+  authorize(request: Request): Promise<{
+    subject: string;
+    /** Authorized store UUIDs, resolved by your server, never copied from the request body. */
+    legalEntityIds?: readonly string[];
+    /** Compatibility for integrations whose session authorizes exactly one store. */
+    legalEntityId?: string;
+    idempotencyScope: string;
+  } | null>;
   allowRequest(subject: string, operation: 'create' | 'read'): Promise<boolean>;
   validateInput(input: unknown): SimulationRequest;
   saveOwnership(subject: string, simulationId: string): Promise<void>;
@@ -27,8 +34,13 @@ export function createHandlers(zinix: Zinix, policies: Policies) {
         if (!/^[A-Za-z0-9._:-]{8,64}$/.test(key) || !/^[A-Za-z0-9_-]{8,48}$/.test(auth.idempotencyScope)) return json({ error: 'Chave de operação inválida.' }, 400);
         // Enforce request body size in your server/proxy before this handler.
         const payload = policies.validateInput(await request.json());
-        // Entity belongs to the authenticated session/store config, never the visitor.
-        const result = await zinix.simulations.create({ ...payload, legal_entity_id: auth.legalEntityId }, {
+        const authorizedEntities = auth.legalEntityIds ?? (auth.legalEntityId ? [auth.legalEntityId] : []);
+        // Preserve the selected CNPJ, after checking the server-owned authorization.
+        // Never silently replace a different selection with the primary store.
+        if (!authorizedEntities.includes(payload.legal_entity_id)) {
+          return json({ error: 'CNPJ não autorizado para este usuário.' }, 403);
+        }
+        const result = await zinix.simulations.create(payload, {
           idempotencyKey: `${auth.idempotencyScope}.${key}`, signal: request.signal,
         });
         await policies.saveOwnership(auth.subject, result.data.id);

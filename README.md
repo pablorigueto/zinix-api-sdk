@@ -44,6 +44,41 @@ Cada método retorna `{ data, meta }`. Listas e consultas que a API envolve em
 `{ data }` são desembrulhadas uma vez. `meta` contém status HTTP, `requestId`,
 `retryAfterMs`, ETag e limites de requisições, quando enviados pela API.
 
+## Mais de um CNPJ na mesma integração
+
+`legalEntities.list()` retorna todos os CNPJs ativos permitidos para a chave em
+`resultado.data`, inclusive os adicionais. Não filtre por `is_primary` nem use
+sempre `lojas[0]`: `is_primary` é uma indicação cadastral, não uma restrição para
+simular. O CNPJ aparece mascarado; vincule cada loja ao seu UUID `id`, não tente
+comparar `cnpj_masked` com um CNPJ completo ou com o código privado da Credere.
+
+```ts
+const { data: lojas } = await zinix.legalEntities.list();
+// Exiba todas as lojas autorizadas ao usuário e guarde o id escolhido.
+// A autorização do usuário à loja deve ser validada pelo seu backend.
+const loja = lojas.find(item => item.id === idEscolhidoAutorizado);
+if (!loja) throw new Error('Loja indisponível. Atualize a lista de CNPJs.');
+const { data: bancos } = await zinix.legalEntities.banks(loja.id);
+const { data: marcas } = await zinix.vehicles.brands({ legal_entity_id: loja.id, type: 'car' });
+const { data: simulacao } = await zinix.simulations.create(
+  { ...payloadValidado, legal_entity_id: loja.id },
+  { idempotencyKey: chavePersistidaDestaOperacao },
+);
+```
+
+Ao trocar de loja, consulte os bancos e o catálogo com o UUID escolhido e envie
+esse mesmo UUID no POST. Cada nova operação tem sua própria chave de idempotência;
+uma repetição da mesma operação reutiliza a chave e o mesmo corpo.
+
+No exemplo `examples/server/handlers.ts`, `Policies.authorize` deve retornar
+`legalEntityIds` com os UUIDs que o usuário pode operar, obtidos de dados confiáveis
+no servidor. O handler preserva `payload.legal_entity_id` quando autorizado e
+responde 403 caso contrário. `legalEntityId` continua aceito para sessões de uma
+única loja, mas não substitui silenciosamente outro CNPJ enviado pelo usuário.
+Versões anteriores desse exemplo faziam essa substituição: se você copiou o
+handler para sua aplicação, atualize esse trecho também; reinstalar o pacote não
+altera arquivos já copiados no seu projeto.
+
 ## Métodos
 
 | Método | Operação |
