@@ -18,6 +18,10 @@ function positive(value: number, name: string): number {
   return value;
 }
 function record(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === 'object' && !Array.isArray(value); }
+function financialInclude(value: unknown): 'financial_details' | undefined {
+  if (value !== undefined && value !== 'financial_details') throw new ZinixValidationError('include deve ser financial_details.');
+  return value as 'financial_details' | undefined;
+}
 function retryAfter(value: string | null): number | undefined {
   if (!value) return undefined;
   const delay = /^\d+(\.\d+)?$/.test(value) ? Number(value) * 1000 : Date.parse(value) - Date.now();
@@ -69,7 +73,8 @@ export class Zinix {
       uuid(payload.legal_entity_id);
       return this.#request('POST', '/simulations', options, payload, options.idempotencyKey);
     },
-    get: (id: string, options?: T.RequestOptions) => this.#request<T.Simulation>('GET', `/simulations/${uuid(id)}`, options),
+    get: (id: string, options?: T.SimulationGetOptions) => this.#request<T.Simulation>('GET',
+      this.#path(`/simulations/${uuid(id)}`, { include: financialInclude(options?.include) }), options),
     wait: (id: string, options?: T.PollOptions) => this.#wait(uuid(id), options),
   };
   readonly usage = {
@@ -166,6 +171,7 @@ export class Zinix {
   }
 
   async #wait(id: string, options: T.PollOptions = {}): Promise<T.ZinixResponse<T.Simulation>> {
+    financialInclude(options.include);
     const timeout = positive(options.timeoutMs ?? MAX_POLL_MS, 'timeoutMs');
     const interval = positive(options.intervalMs ?? POLL_MS, 'intervalMs');
     if (timeout > MAX_POLL_MS || interval < POLL_MS) throw new ZinixValidationError('Polling: intervalo mínimo de 20 segundos e janela máxima de 3 minutos.');
@@ -181,7 +187,7 @@ export class Zinix {
       }
       await delay(nextDelay, options.signal);
       try {
-        const response = await this.simulations.get(id, { signal: options.signal, timeoutMs: Math.max(1, Math.min(this.#timeout, deadline - Date.now())) });
+        const response = await this.simulations.get(id, { signal: options.signal, include: options.include, timeoutMs: Math.max(1, Math.min(this.#timeout, deadline - Date.now())) });
         last = response.data;
         await options.onUpdate?.(response);
         if (isTerminalStatus(last.status)) return response;

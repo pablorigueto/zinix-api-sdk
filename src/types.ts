@@ -49,6 +49,19 @@ export interface Condition {
   monthly_rate: number;
   monthly_rate_estimated?: boolean; down_payment_cents?: number | null;
   financed_amount_cents?: number | null; condition_id?: string;
+  /** Only returned when include: 'financial_details' is explicitly requested. */
+  financial_details?: FinancialDetails;
+}
+export interface FinancialDetails {
+  /** Bank-provided annual interest and CET in percent, not decimal fractions. Never estimated by the SDK. */
+  interest_annually: number | null;
+  cet_monthly: number | null;
+  cet_annually: number | null;
+  /** Bank return level/reference; do not interpret this identifier as a percentage. */
+  credit_condition_return: string | null;
+  credit_condition_return_percentage: number | null;
+  /** Inclusion indicator only, not the insurance premium or a breakdown of fees. */
+  include_financial_protection_insurance: boolean | null;
 }
 export interface BankIssue {
   code: string; message: string; status: 'rejected' | 'failed' | 'unavailable';
@@ -85,8 +98,9 @@ export interface ResponseMeta {
 }
 export interface ZinixResponse<T> { data: T; meta: ResponseMeta }
 export interface RequestOptions { signal?: AbortSignal; timeoutMs?: number }
+export interface SimulationGetOptions extends RequestOptions { include?: 'financial_details' }
 export interface CreateOptions extends RequestOptions { idempotencyKey: string }
-export interface PollOptions {
+export interface PollOptions extends SimulationGetOptions {
   signal?: AbortSignal;
   /** 1..180000 ms; the server's polling contract caps the window at three minutes. */
   timeoutMs?: number;

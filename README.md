@@ -23,7 +23,7 @@ npm test
 npm pack
 
 # No backend consumidor, usando o arquivo gerado:
-npm install ../zinix-api-sdk/zinix-sdk-0.1.0.tgz
+npm install ../zinix-api-sdk/zinix-sdk-0.2.0.tgz
 ```
 
 ## Cliente
@@ -188,6 +188,36 @@ e `error`. Bancos podem ter ofertas para alguns prazos e falhas para outros.
   permanece a mesma quando `monthly_rate_estimated` é `true`.
 - Não invente parcelas nem anuncie aprovação quando `conditions` estiver vazio.
 - `partial` pode conter ofertas válidas; mostre também as pendências/falhas.
+
+### CET, retorno e proteção financeira (opcional, SDK 0.2.0)
+
+O formato padrão de `get(uuid)` e `wait(uuid)` permanece inalterado. Para receber
+os campos adicionais em cada `results[].conditions[].financial_details`:
+
+```ts
+const { data: resultado } = await zinix.simulations.get(uuid, {
+  include: 'financial_details',
+});
+// Em um job, a mesma opção acompanha todas as consultas do polling:
+const final = await zinix.simulations.wait(uuid, { include: 'financial_details' });
+```
+
+Isso corresponde a `GET /simulations/{uuid}?include=financial_details`. Não cria
+uma simulação nem consome outro crédito. Os limites normais de GET continuam valendo.
+
+Os juros anuais (`interest_annually`), CET mensal/anual (`cet_monthly`,
+`cet_annually`) e percentual de retorno (`credit_condition_return_percentage`)
+são números em percentual: `2.23` significa `2,23%`. O identificador
+`credit_condition_return` é uma string de referência/nível do banco (por exemplo,
+`"R3"` ou `"3"`), não um percentual presumido.
+`include_financial_protection_insurance` informa somente se há proteção financeira
+incluída; não informa o prêmio nem discrimina tarifas ou outros produtos.
+
+Campos não informados, inválidos ou não capturados em resultados anteriores à
+implantação ficam `null`, sem estimar CET ou transformar ausência em zero/false.
+`0` e `false` explícitos são valores válidos. Não reenvie uma análise só para obter
+esses campos históricos. A resposta ampliada tem ETag próprio; não reutilize o
+cache da consulta padrão para ela.
 
 ### Créditos
 

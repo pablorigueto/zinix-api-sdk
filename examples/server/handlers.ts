@@ -53,7 +53,11 @@ export function createHandlers(zinix: Zinix, policies: Policies) {
         if (!auth) return json({ error: 'Não autorizado.' }, 401);
         if (!(await policies.ownsSimulation(auth.subject, simulationId))) return json({ error: 'Simulação não encontrada.' }, 404);
         if (!(await policies.allowRequest(auth.subject, 'read'))) return json({ error: 'Limite de requisições.' }, 429);
-        const result = await zinix.simulations.get(simulationId, { signal: request.signal });
+        const include = new URL(request.url).searchParams.get('include');
+        if (include !== null && include !== 'financial_details') return json({ error: 'include inválido.' }, 400);
+        const result = await zinix.simulations.get(simulationId, {
+          signal: request.signal, ...(include ? { include } : {}),
+        });
         return json(result.data);
       } catch (error) { return handleError(error); }
     },

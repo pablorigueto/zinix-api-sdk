@@ -53,6 +53,11 @@ CPF, telefone, e-mail, body ou headers de autorização em logs.
 
 ## React + Vite
 
+Para obter CET, retorno e o indicador de proteção financeira, o GET do exemplo
+aceita `?include=financial_details`. A opção é repassada apenas após autorização
+e verificação da propriedade da simulação. O GET sem a opção mantém a resposta
+padrão. Veja no README principal as unidades e o significado de `null`.
+
 Sites estáticos não executam Route Handlers. Use as mesmas operações no backend
 Node/VPS/serverless que atenderá o site, mantendo a chave apenas nele.
 Depois configure o navegador para chamar `/api/financiamento` desse backend, com

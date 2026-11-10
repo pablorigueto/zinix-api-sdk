@@ -62,6 +62,43 @@ test('GET preserves all offers, entries, issues and metadata', async () => {
   const r = await sdk.simulations.get(ID);
   assert.deepEqual(r.data, data); assert.equal(r.meta.etag, 'etag-1'); assert.equal(r.meta.rateLimit.remaining, 28);
 });
+
+test('financial details are opt-in and preserve null, zero, false and bank reference', async () => {
+  const data = simulation();
+  const financial = { interest_annually: 24.46, cet_monthly: 2.23, cet_annually: 30.31,
+    credit_condition_return: 'R0', credit_condition_return_percentage: 0,
+    include_financial_protection_insurance: false };
+  data.results[0].conditions[0].financial_details = financial;
+  data.results[0].conditions[1].financial_details = Object.fromEntries(Object.keys(financial).map(k => [k, null]));
+  const { sdk, calls } = client(response(simulation()), response(data));
+  const standard = await sdk.simulations.get(ID);
+  const expanded = await sdk.simulations.get(ID, { include: 'financial_details' });
+  assert.equal(calls[0].url, `https://saas.zinix.com.br/v1/simulations/${ID}`);
+  assert.equal(standard.data.results[0].conditions[0].financial_details, undefined);
+  assert.equal(calls[1].url, `https://saas.zinix.com.br/v1/simulations/${ID}?include=financial_details`);
+  assert.deepEqual(expanded.data, data);
+  assert.ok(calls.every(c => c.init.method === 'GET' && c.init.body === undefined));
+});
+
+test('financial include is allowlisted before any request', async () => {
+  const { sdk, calls } = client();
+  for (const include of ['other', '', ['financial_details'], true]) {
+    assert.throws(() => sdk.simulations.get(ID, { include }), ZinixValidationError);
+    await assert.rejects(sdk.simulations.wait(ID, { include }), ZinixValidationError);
+  }
+  assert.equal(calls.length, 0);
+});
+
+test('polling keeps financial expansion on every GET without extra submissions', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 0 });
+  const { sdk, calls } = client(response(simulation('processing')), response(simulation()));
+  const pending = sdk.simulations.wait(ID, { include: 'financial_details' });
+  t.mock.timers.tick(20000); await flush();
+  t.mock.timers.tick(20000); await flush();
+  assert.equal((await pending).data.status, 'completed');
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every(c => c.init.method === 'GET' && c.url.endsWith('?include=financial_details')));
+});
 for (const status of [400, 401, 402, 403, 404, 409, 422, 429, 500, 502, 503]) {
   test(`HTTP ${status}: preserve structured error, never retry POST`, async () => {
     const { sdk, calls } = client(response({ error: { code: 'problem', message: 'Motivo.', details: [{ field: 'applicant.email' }] }, request_id: 'trace' }, status, { 'Retry-After': '25' }));
